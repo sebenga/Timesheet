@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: atisa-timesheet
+    runtime: python
+    plan: free
+    branch: main
+    repo: https://github.com/sebenga/Timesheet.git
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: python manage.py migrate --noinput && python manage.py ensure_admin && gunicorn timeshit.wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: '3.12.8'
+      - key: DEBUG
+        value: 'False'
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: atisa-timesheet-db
+          property: connectionString
+
+databases:
+  - name: atisa-timesheet-db
+    plan: free
+    databaseName: timesheet
+    user: timesheet

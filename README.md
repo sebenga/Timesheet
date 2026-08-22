@@ -24,6 +24,18 @@ python manage.py runserver
 
 Open [http://127.0.0.1:8000/](http://127.0.0.1:8000/) in your browser.
 
+## Hosting
+
+The app deploys from the GitHub `main` branch on [Render](https://render.com/) (free web service + free Postgres, HTTPS included). Pushes to `main` trigger a new deploy.
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/sebenga/Timesheet)
+
+1. Open the button above (or [this deploy link](https://render.com/deploy?repo=https://github.com/sebenga/Timesheet)).
+2. Sign in to Render with the GitHub account that owns [sebenga/Timesheet](https://github.com/sebenga/Timesheet).
+3. Apply the Blueprint (`render.yaml`) on the **free** plan.
+
+The live URL is `https://<service-name>.onrender.com`. Free web services sleep after idle time and take about a minute to wake. Free Postgres on Render expires after 30 days unless upgraded.
+
 ## Project structure
 
 ```
