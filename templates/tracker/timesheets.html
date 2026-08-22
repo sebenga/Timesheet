@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+{% load timesheet_extras %}
+
+{% block title %}Timesheets — Timesheet Manager{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Developer timesheets</h1>
+    <p class="page-subtitle">
+      Fill in ticket details and hours spent.
+    </p>
+  </div>
+</section>
+
+{% if template and timesheet_form %}
+  <section class="panel">
+    <h2>Log timesheet entry</h2>
+    <form method="post" action="{% url 'submit_timesheet' %}" class="form timesheet-form">
+      {% csrf_token %}
+      <input type="hidden" name="template_id" value="{{ template.pk }}">
+
+      <div class="form-section">
+        <h3>Ticket details</h3>
+        <div class="field-grid">
+          {% for column, field in data_fields %}
+            <div class="field-item field-{{ column.type }}">
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}
+                <span class="error">{{ field.errors.0 }}</span>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Save timesheet</button>
+    </form>
+  </section>
+{% endif %}
+
+<section class="panel">
+  <h2>Saved timesheets</h2>
+  <form method="get" action="{% url 'timesheets' %}" class="filter-bar">
+    <div class="field-item">
+      <label for="{{ filter_form.start.id_for_label }}">{{ filter_form.start.label }}</label>
+      {{ filter_form.start }}
+    </div>
+    <div class="field-item">
+      <label for="{{ filter_form.end.id_for_label }}">{{ filter_form.end.label }}</label>
+      {{ filter_form.end }}
+    </div>
+    <div class="field-item">
+      <label for="{{ filter_form.status.id_for_label }}">{{ filter_form.status.label }}</label>
+      {{ filter_form.status }}
+    </div>
+    <div class="filter-actions">
+      <button type="submit" class="btn btn-secondary">Search</button>
+      <a href="{% url 'timesheets' %}" class="btn btn-secondary">This month</a>
+    </div>
+  </form>
+  {% if records %}
+    <div class="table-scroll">
+      <table class="entries-table timesheet-table">
+        <thead>
+          <tr>
+            <th>Saved</th>
+            {% for column in template.columns %}
+              <th>{{ column.name }}</th>
+            {% endfor %}
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in records %}
+            <tr>
+              <td>{{ record.created_at|date:"Y-m-d H:i" }}</td>
+              {% for column in record.template.columns %}
+                <td>
+                  {% if column.type == 'hours' %}
+                    {% with hours=record.field_values|dict_get:column.name %}
+                      {% if hours %}{{ hours }}h{% else %}—{% endif %}
+                    {% endwith %}
+                  {% else %}
+                    {{ record.field_values|dict_get:column.name|default:"—" }}
+                  {% endif %}
+                </td>
+              {% endfor %}
+              <td class="table-actions">
+                {% record_values_script record %}
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm edit-timesheet-btn"
+                  data-edit-url="{% url 'edit_timesheet' record.pk %}"
+                  data-record-id="{{ record.pk }}"
+                >Edit</button>
+                <form method="post" action="{% url 'delete_timesheet_record' record.pk %}" class="inline-form">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty">No timesheet entries found for this date range{% if filter_status %} and status{% endif %}.</p>
+  {% endif %}
+</section>
+
+{% if template and edit_form %}
+  <div id="edit-timesheet-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-timesheet-title">
+      <section class="panel modal-panel">
+        <div class="modal-header">
+          <h2 id="edit-timesheet-title">Edit timesheet entry</h2>
+          <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+        </div>
+        <form id="edit-timesheet-form" method="post" action="" class="form timesheet-form">
+          {% csrf_token %}
+          <div class="form-section">
+            <h3>Ticket details</h3>
+            <div class="field-grid">
+              {% for column, field in edit_fields %}
+                <div class="field-item field-{{ column.type }}">
+                  <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                  {{ field }}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" data-close-modal>Cancel</button>
+            <button type="submit" class="btn btn-primary">Save changes</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const modal = document.getElementById('edit-timesheet-modal');
+    const form = document.getElementById('edit-timesheet-form');
+    const allowComplete = {{ user.is_staff|yesno:"true,false" }};
+    if (!modal || !form) return;
+
+    function closeModal() {
+      modal.hidden = true;
+    }
+
+    function statusSelect() {
+      return form.querySelector('select[name="Status"]');
+    }
+
+    function setCompleteLocked(locked) {
+      const select = statusSelect();
+      if (!select) return;
+      let hidden = form.querySelector('input[type="hidden"][name="Status"]');
+      const completeOption = [...select.options].find(function (option) {
+        return option.value === 'COMPLETE';
+      });
+      if (locked) {
+        if (completeOption) completeOption.hidden = false;
+        select.value = 'COMPLETE';
+        select.disabled = true;
+        if (!hidden) {
+          hidden = document.createElement('input');
+          hidden.type = 'hidden';
+          hidden.name = 'Status';
+          form.appendChild(hidden);
+        }
+        hidden.value = 'COMPLETE';
+      } else {
+        select.disabled = false;
+        if (hidden) hidden.remove();
+        if (completeOption && !allowComplete) completeOption.hidden = true;
+        if (select.value === 'COMPLETE' && !allowComplete) select.value = '';
+      }
+    }
+
+    function fillForm(values) {
+      setCompleteLocked(false);
+      form.querySelectorAll('input, select, textarea').forEach(function (field) {
+        if (field.type === 'hidden' || field.name === 'csrfmiddlewaretoken') return;
+        const value = values[field.name];
+        if (value === undefined || value === null) {
+          field.value = '';
+          return;
+        }
+        field.value = value;
+      });
+      if (!allowComplete && values.Status === 'COMPLETE') {
+        setCompleteLocked(true);
+      }
+    }
+
+    if (!allowComplete) setCompleteLocked(false);
+
+    document.querySelectorAll('.edit-timesheet-btn').forEach(function (button) {
+      button.addEventListener('click', function () {
+        const recordId = button.getAttribute('data-record-id');
+        const payload = document.getElementById('record-json-' + recordId);
+        if (!payload) return;
+        fillForm(JSON.parse(payload.textContent));
+        form.action = button.getAttribute('data-edit-url');
+        modal.hidden = false;
+      });
+    });
+
+    modal.querySelectorAll('[data-close-modal]').forEach(function (el) {
+      el.addEventListener('click', closeModal);
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && !modal.hidden) closeModal();
+    });
+  })();
+</script>
+{% endblock %}

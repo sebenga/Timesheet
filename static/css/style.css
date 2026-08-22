@@ -1,0 +1,793 @@
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface-hover: #222633;
+  --border: #2a2f3d;
+  --text: #e8eaed;
+  --text-muted: #9aa0b0;
+  --primary: #6366f1;
+  --primary-hover: #818cf8;
+  --danger: #ef4444;
+  --danger-hover: #f87171;
+  --radius: 12px;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  width: 100%;
+  max-width: none;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 1.25rem 0;
+}
+
+.header-inner {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.nav {
+  display: flex;
+  gap: 1rem;
+  margin-left: auto;
+}
+
+.nav-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.nav-link:hover {
+  color: var(--primary);
+}
+
+.messages {
+  list-style: none;
+  margin-bottom: 1.5rem;
+}
+
+.message {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.message-success {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.message-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.page-header {
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.page-header .btn {
+  margin-top: 0;
+}
+
+.page-subtitle {
+  color: var(--text-muted);
+  max-width: 900px;
+}
+
+.page-header h1 {
+  font-size: 1.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.panel-help {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.panel-help code {
+  background: var(--bg);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.template-name {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.column-tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+}
+
+.tag span {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.tag-data {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.tag-resource {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.form-section {
+  margin-bottom: 1.5rem;
+}
+
+.form-section h3 {
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1.5rem;
+  width: 100%;
+}
+
+.field-item {
+  width: 100%;
+  min-width: 0;
+}
+
+.field-item textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+@media (max-width: 700px) {
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.field-item label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.field-item input,
+.field-item textarea,
+.field-item select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.field-item input:focus,
+.field-item textarea:focus,
+.field-item select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.readonly-input {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.resource-field input {
+  text-align: center;
+  font-weight: 600;
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.timesheet-table {
+  width: 100%;
+  min-width: 100%;
+  table-layout: auto;
+}
+
+.timesheet-table th,
+.timesheet-table td {
+  white-space: normal;
+  word-break: break-word;
+  vertical-align: top;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.tagline {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+main {
+  flex: 1;
+  padding: 2rem 0;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stat-card.accent {
+  border-color: var(--primary);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), var(--surface));
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+  width: 100%;
+}
+
+.timesheet-form {
+  width: 100%;
+}
+
+.panel h2 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+.form label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.form label:first-of-type {
+  margin-top: 0;
+}
+
+.form input,
+.form select,
+.form textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.form input:focus,
+.form select:focus,
+.form textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.form input[type="color"] {
+  height: 42px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 0.8rem;
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.6rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: background 0.15s;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  background: var(--border);
+  color: var(--text);
+}
+
+.btn-secondary:hover {
+  background: var(--surface-hover);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.btn-danger:hover {
+  background: var(--danger);
+  color: white;
+}
+
+.btn-sm {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  margin-top: 0;
+}
+
+.inline-form {
+  display: inline;
+}
+
+.project-list {
+  list-style: none;
+}
+
+.project-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.project-list li:last-child {
+  border-bottom: none;
+}
+
+.project-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.project-name {
+  flex: 1;
+}
+
+.project-hours {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.entries-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.entries-table th,
+.entries-table td {
+  text-align: left;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.entries-table th {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.entries-table td {
+  font-size: 0.95rem;
+}
+
+.empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 1.25rem 0;
+  margin-top: auto;
+}
+
+.footer p {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.footer code {
+  background: var(--surface);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.nav-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.text-muted {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr)) auto;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1.25rem;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filter-actions .btn {
+  margin-top: 0;
+}
+
+.filter-bar .field-item input,
+.filter-bar .field-item select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+@media (max-width: 900px) {
+  .filter-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem;
+  overflow-y: auto;
+}
+
+.modal[hidden] {
+  display: none;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.modal-dialog {
+  position: relative;
+  z-index: 1001;
+  width: min(960px, 100%);
+  margin: auto;
+}
+
+.modal-panel {
+  margin-bottom: 0;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modal-header h2 {
+  margin-bottom: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.modal-actions .btn {
+  margin-top: 1rem;
+}
+
+.totals-row td {
+  font-weight: 700;
+  border-top: 2px solid var(--border);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.login-panel {
+  max-width: 420px;
+  margin: 2rem auto;
+}
+
+@media (max-width: 600px) {
+  .header-inner {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}
+
+/* Compact density: fit more rows and fields on screen. */
+body {
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.container {
+  padding: 0 1rem;
+}
+
+.header {
+  padding: 0.6rem 0;
+}
+
+.logo {
+  font-size: 1.1rem;
+}
+
+.nav-link,
+.tagline {
+  font-size: 0.8rem;
+}
+
+main {
+  padding: 0.85rem 0;
+}
+
+.page-header {
+  margin-bottom: 0.75rem;
+}
+
+.page-header h1 {
+  font-size: 1.15rem;
+  margin-bottom: 0.15rem;
+}
+
+.page-subtitle,
+.panel-help {
+  font-size: 0.78rem;
+  margin-bottom: 0.5rem;
+}
+
+.panel {
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.85rem;
+  border-radius: 8px;
+}
+
+.panel h2 {
+  font-size: 0.95rem;
+  margin-bottom: 0.6rem;
+}
+
+.form-section {
+  margin-bottom: 0.85rem;
+}
+
+.form-section h3 {
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.field-grid {
+  gap: 0.5rem 1rem;
+}
+
+.field-item label {
+  font-size: 0.72rem;
+  margin-bottom: 0.15rem;
+}
+
+.field-item input,
+.field-item textarea,
+.field-item select,
+.filter-bar .field-item input,
+.filter-bar .field-item select {
+  padding: 0.32rem 0.5rem;
+  font-size: 0.82rem;
+  border-radius: 6px;
+}
+
+.field-item textarea {
+  min-height: 2.6rem;
+}
+
+.filter-bar {
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.btn {
+  padding: 0.38rem 0.8rem;
+  font-size: 0.8rem;
+  margin-top: 0.6rem;
+  border-radius: 6px;
+}
+
+.btn-sm {
+  padding: 0.18rem 0.5rem;
+  font-size: 0.72rem;
+}
+
+.entries-table {
+  font-size: 0.78rem;
+}
+
+.entries-table th,
+.entries-table td {
+  padding: 0.3rem 0.4rem;
+}
+
+.entries-table th {
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+}
+
+.table-actions {
+  gap: 0.3rem;
+}
+
+.messages {
+  margin-bottom: 0.75rem;
+}
+
+.message {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.footer {
+  padding: 0.6rem 0;
+}
+
+.footer p {
+  font-size: 0.72rem;
+}
+
+.modal {
+  padding: 1rem 0.75rem;
+}
+
+.modal-header {
+  margin-bottom: 0.6rem;
+}
+
+.modal-actions .btn {
+  margin-top: 0.6rem;
+}

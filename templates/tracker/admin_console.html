@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin — Timesheet{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Administrator</h1>
+    <p class="page-subtitle">
+      Create and remove user accounts, and set SD and ATISA time margins.
+      This page is only available to admin users.
+    </p>
+  </div>
+</section>
+
+<div class="grid">
+  <section class="panel">
+    <h2>Create user account</h2>
+    <form method="post" action="{% url 'create_user' %}" class="form">
+      {% csrf_token %}
+      {% for field in create_user_form %}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}
+          <span class="error">{{ field.errors.0 }}</span>
+        {% endif %}
+      {% endfor %}
+      <button type="submit" class="btn btn-primary">Create account</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Time margins</h2>
+    <p class="panel-help">
+      Enter SD and ATISA margins as percentages (0–100). These rates are saved onto each
+      timesheet when it is marked COMPLETE. Changing them later does not change records
+      already on the dashboard.
+    </p>
+    <form method="post" action="{% url 'save_margins' %}" class="form">
+      {% csrf_token %}
+      {% for field in margin_form %}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}
+          <span class="error">{{ field.errors.0 }}</span>
+        {% endif %}
+      {% endfor %}
+      <button type="submit" class="btn btn-secondary">Save margins</button>
+    </form>
+  </section>
+</div>
+
+<section class="panel">
+  <h2>Users</h2>
+  {% if users %}
+    <table class="entries-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Active</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for account in users %}
+          <tr>
+            <td>{{ account.username }}</td>
+            <td>{{ account.email|default:"—" }}</td>
+            <td>{% if account.is_staff %}Admin{% else %}User{% endif %}</td>
+            <td>{% if account.is_active %}Yes{% else %}No{% endif %}</td>
+            <td class="table-actions">
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm edit-user-btn"
+                data-edit-url="{% url 'edit_user' account.pk %}"
+                data-username="{{ account.username }}"
+                data-email="{{ account.email }}"
+              >Edit</button>
+              {% if account != request.user and not account.is_superuser %}
+                <form method="post" action="{% url 'delete_user' account.pk %}" class="inline-form">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">No users yet.</p>
+  {% endif %}
+</section>
+
+<div id="edit-user-modal" class="modal" hidden>
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-user-title">
+    <section class="panel modal-panel">
+      <div class="modal-header">
+        <h2 id="edit-user-title">Edit profile</h2>
+        <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+      </div>
+      <form id="edit-user-form" method="post" action="" class="form">
+        {% csrf_token %}
+        {% for field in edit_user_form %}
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+        {% endfor %}
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancel</button>
+          <button type="submit" class="btn btn-primary">Save changes</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const modal = document.getElementById('edit-user-modal');
+    const form = document.getElementById('edit-user-form');
+    if (!modal || !form) return;
+
+    function closeModal() {
+      modal.hidden = true;
+    }
+
+    document.querySelectorAll('.edit-user-btn').forEach(function (button) {
+      button.addEventListener('click', function () {
+        form.action = button.getAttribute('data-edit-url');
+        const username = form.querySelector('[name="username"]');
+        const email = form.querySelector('[name="email"]');
+        const password = form.querySelector('[name="password"]');
+        if (username) username.value = button.getAttribute('data-username') || '';
+        if (email) email.value = button.getAttribute('data-email') || '';
+        if (password) password.value = '';
+        modal.hidden = false;
+      });
+    });
+
+    modal.querySelectorAll('[data-close-modal]').forEach(function (el) {
+      el.addEventListener('click', closeModal);
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && !modal.hidden) closeModal();
+    });
+  })();
+</script>
+{% endblock %}

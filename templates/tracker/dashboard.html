@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load timesheet_extras %}
+
+{% block title %}Dashboard — Timesheet Manager{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Completed timesheets</h1>
+    <p class="page-subtitle">
+      Tickets are grouped by Ticket ID. ATISA and {{ admin_username }} totals use the margin
+      that was in effect when each record was marked COMPLETE.
+    </p>
+  </div>
+  <a href="{% url 'export_dashboard_excel' %}" class="btn btn-primary">Export to Excel</a>
+</section>
+
+<section class="panel">
+  {% if rows %}
+    <div class="table-scroll">
+      <table class="entries-table timesheet-table dashboard-table">
+        <thead>
+          <tr>
+            {% for name in detail_columns %}
+              <th>{{ name }}</th>
+            {% endfor %}
+            <th>Hours spent</th>
+            {% for user in users %}
+              <th>{{ user }}</th>
+            {% endfor %}
+            <th>ATISA Total Hours</th>
+            <th>{{ admin_username }} Total Hours</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              {% for name in detail_columns %}
+                <td>{{ row.details|dict_get:name|default:"—" }}</td>
+              {% endfor %}
+              <td>{{ row.total_hours }}h</td>
+              {% for user in users %}
+                <td>{{ row.user_hours|dict_get:user }}h</td>
+              {% endfor %}
+              <td>{{ row.atisa_total_decimal }}h</td>
+              <td>{{ row.admin_sd_total_decimal }}h</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="totals-row">
+            <td>Totals</td>
+            {% for name in detail_columns %}
+              {% if not forloop.first %}
+                <td></td>
+              {% endif %}
+            {% endfor %}
+            <td>{{ totals.total_hours }}h</td>
+            {% for user in users %}
+              <td>{{ totals.user_hours|dict_get:user }}h</td>
+            {% endfor %}
+            <td>{{ totals.atisa_total_decimal }}h</td>
+            <td>{{ totals.admin_sd_total_decimal }}h</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty">No COMPLETE timesheets found for the current month.</p>
+  {% endif %}
+</section>
+{% endblock %}
