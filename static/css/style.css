@@ -243,6 +243,9 @@ body {
 .table-scroll {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
 }
 
 .timesheet-table {
@@ -790,4 +793,41 @@ main {
 
 .modal-actions .btn {
   margin-top: 0.6rem;
+}
+
+/* Small screens: scroll wide spreadsheets sideways instead of squeezing columns. */
+@media (max-width: 700px) {
+  .table-scroll {
+    margin: 0 -1rem;
+    padding: 0 1rem;
+  }
+
+  .table-scroll .entries-table {
+    width: auto;
+    min-width: 100%;
+  }
+
+  .table-scroll .entries-table th,
+  .table-scroll .entries-table td {
+    white-space: nowrap;
+    word-break: normal;
+  }
+
+  /* Keep the leading column in view while reading across a row. */
+  .table-scroll .timesheet-table th:first-child,
+  .table-scroll .timesheet-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--surface);
+    box-shadow: 1px 0 0 var(--border);
+  }
+
+  .table-scroll .timesheet-table .totals-row td:first-child {
+    background: #23253a;
+  }
+
+  .table-actions {
+    flex-wrap: nowrap;
+  }
 }

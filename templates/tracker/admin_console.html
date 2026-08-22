@@ -53,7 +53,8 @@
 <section class="panel">
   <h2>Users</h2>
   {% if users %}
-    <table class="entries-table">
+    <div class="table-scroll">
+    <table class="entries-table timesheet-table">
       <thead>
         <tr>
           <th>Username</th>
@@ -89,6 +90,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   {% else %}
     <p class="empty">No users yet.</p>
   {% endif %}
