@@ -7,48 +7,26 @@
   <div>
     <h1>Administrator</h1>
     <p class="page-subtitle">
-      Create and remove user accounts, and set SD and ATISA time margins.
+      Create and remove user accounts. New users must set their own password on first login.
       This page is only available to admin users.
     </p>
   </div>
 </section>
 
-<div class="grid">
-  <section class="panel">
-    <h2>Create user account</h2>
-    <form method="post" action="{% url 'create_user' %}" class="form">
-      {% csrf_token %}
-      {% for field in create_user_form %}
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% if field.errors %}
-          <span class="error">{{ field.errors.0 }}</span>
-        {% endif %}
-      {% endfor %}
-      <button type="submit" class="btn btn-primary">Create account</button>
-    </form>
-  </section>
-
-  <section class="panel">
-    <h2>Time margins</h2>
-    <p class="panel-help">
-      Enter SD and ATISA margins as percentages (0–100). These rates are saved onto each
-      timesheet when it is marked COMPLETE. Changing them later does not change records
-      already on the dashboard.
-    </p>
-    <form method="post" action="{% url 'save_margins' %}" class="form">
-      {% csrf_token %}
-      {% for field in margin_form %}
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% if field.errors %}
-          <span class="error">{{ field.errors.0 }}</span>
-        {% endif %}
-      {% endfor %}
-      <button type="submit" class="btn btn-secondary">Save margins</button>
-    </form>
-  </section>
-</div>
+<section class="panel">
+  <h2>Create user account</h2>
+  <form method="post" action="{% url 'create_user' %}" class="form">
+    {% csrf_token %}
+    {% for field in create_user_form %}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}
+        <span class="error">{{ field.errors.0 }}</span>
+      {% endif %}
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Create account</button>
+  </form>
+</section>
 
 <section class="panel">
   <h2>Users</h2>

@@ -60,22 +60,18 @@ class TimesheetRecord(models.Model):
     def value_for(self, column_name, default=''):
         return self.field_values.get(column_name, default)
 
-    def freeze_margins_if_complete(self):
-        """Lock current admin margins onto COMPLETE records; leave them unchanged later."""
+    def apply_completion_margins(self, sd_margin=None, atisa_margin=None):
+        """Store per-record margins when COMPLETE; clear them otherwise."""
         values = self.field_values or {}
         if values.get('Status') != 'COMPLETE':
             self.sd_margin = None
             self.atisa_margin = None
             return
 
-        if self.sd_margin is not None and self.atisa_margin is not None:
-            return
-
-        settings = TimeMarginSettings.get_solo()
-        if self.sd_margin is None:
-            self.sd_margin = settings.sd_margin
-        if self.atisa_margin is None:
-            self.atisa_margin = settings.atisa_margin
+        if sd_margin is not None:
+            self.sd_margin = sd_margin
+        if atisa_margin is not None:
+            self.atisa_margin = atisa_margin
 
     @property
     def total_hours(self):
@@ -148,3 +144,23 @@ class TimeEntry(models.Model):
 
     def __str__(self):
         return f'{self.task} ({self.hours}h)'
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='profile',
+    )
+    must_change_password = models.BooleanField(
+        default=False,
+        help_text='Require this user to set a new password on next login.',
+    )
+
+    def __str__(self):
+        return f'Profile for {self.user.username}'
+
+    @classmethod
+    def for_user(cls, user):
+        profile, _created = cls.objects.get_or_create(user=user)
+        return profile

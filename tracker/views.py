@@ -1,7 +1,8 @@
 from io import BytesIO
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_not_required, user_passes_test
 from django.contrib.auth.models import User
 from django.http import HttpResponse, HttpResponseForbidden
@@ -14,14 +15,15 @@ from .dashboard_summary import build_completed_month_summary
 from .forms import (
     CreateUserForm,
     EditUserForm,
+    FirstLoginPasswordForm,
     LoginForm,
     ProjectForm,
     TimeEntryForm,
-    TimeMarginSettingsForm,
     TimesheetFilterForm,
     build_timesheet_form,
 )
-from .models import TimeMarginSettings, TimesheetRecord, TimesheetTemplate
+from .models import TimesheetRecord, TimesheetTemplate, UserProfile
+from .notifications import notify_admin_record_amended
 from .timesheet_defaults import ensure_default_timesheet_template
 from .timesheet_query import current_month_range, filter_timesheet_records
 
@@ -34,6 +36,9 @@ def staff_required(view):
 
 
 def home_for(user):
+    profile = UserProfile.for_user(user)
+    if profile.must_change_password:
+        return 'change_password'
     return 'dashboard' if user.is_staff else 'timesheets'
 
 
@@ -64,16 +69,31 @@ def logout_view(request):
     return redirect('login')
 
 
+def change_password(request):
+    profile = UserProfile.for_user(request.user)
+    form = FirstLoginPasswordForm(request.POST or None, user=request.user)
+    if request.method == 'POST' and form.is_valid():
+        request.user.set_password(form.cleaned_data['new_password'])
+        request.user.save()
+        profile.must_change_password = False
+        profile.save(update_fields=['must_change_password'])
+        update_session_auth_hash(request, request.user)
+        messages.success(request, 'Your password has been updated.')
+        return redirect('dashboard' if request.user.is_staff else 'timesheets')
+
+    return render(request, 'tracker/change_password.html', {
+        'form': form,
+        'forced': profile.must_change_password,
+    })
+
+
 @staff_required
 def admin_console(request):
     users = User.objects.order_by('-is_staff', 'username')
-    margins = TimeMarginSettings.get_solo()
     return render(request, 'tracker/admin_console.html', {
         'users': users,
         'create_user_form': CreateUserForm(),
         'edit_user_form': EditUserForm(auto_id='id_edit_%s'),
-        'margin_form': TimeMarginSettingsForm(instance=margins),
-        'margins': margins,
     })
 
 
@@ -85,14 +105,20 @@ def create_user(request):
         messages.error(request, form.errors.as_text())
         return redirect('admin_console')
 
-    User.objects.create_user(
+    account = User.objects.create_user(
         username=form.cleaned_data['username'],
         email=form.cleaned_data['email'],
         password=form.cleaned_data['password'],
         is_staff=False,
         is_superuser=False,
     )
-    messages.success(request, f'Account created for {form.cleaned_data["username"]}.')
+    profile = UserProfile.for_user(account)
+    profile.must_change_password = True
+    profile.save(update_fields=['must_change_password'])
+    messages.success(
+        request,
+        f'Account created for {account.username}. They must set a new password on first login.',
+    )
     return redirect('admin_console')
 
 
@@ -109,9 +135,15 @@ def edit_user(request, pk):
     new_username = form.cleaned_data['username']
     account.username = new_username
     account.email = form.cleaned_data['email']
-    if form.cleaned_data.get('password'):
+    password_reset = bool(form.cleaned_data.get('password'))
+    if password_reset:
         account.set_password(form.cleaned_data['password'])
     account.save()
+
+    if password_reset:
+        profile = UserProfile.for_user(account)
+        profile.must_change_password = True
+        profile.save(update_fields=['must_change_password'])
 
     if old_username != new_username:
         for record in TimesheetRecord.objects.all():
@@ -122,7 +154,13 @@ def edit_user(request, pk):
             record.field_values = values
             record.save(update_fields=['field_values'])
 
-    messages.success(request, f'Profile updated for {account.username}.')
+    if password_reset:
+        messages.success(
+            request,
+            f'Profile updated for {account.username}. They must set a new password on next login.',
+        )
+    else:
+        messages.success(request, f'Profile updated for {account.username}.')
     return redirect('admin_console')
 
 
@@ -140,19 +178,6 @@ def delete_user(request, pk):
     username = user.username
     user.delete()
     messages.success(request, f'User "{username}" deleted.')
-    return redirect('admin_console')
-
-
-@staff_required
-@require_POST
-def save_margins(request):
-    margins = TimeMarginSettings.get_solo()
-    form = TimeMarginSettingsForm(request.POST, instance=margins)
-    if form.is_valid():
-        form.save()
-        messages.success(request, 'Time margins saved.')
-    else:
-        messages.error(request, 'Enter valid numeric margins for SD and ATISA.')
     return redirect('admin_console')
 
 
@@ -256,6 +281,43 @@ def _guard_complete_status(user, form, previous=None):
     return 'Only an administrator can mark a timesheet as COMPLETE.'
 
 
+def _parse_margin_percent(raw):
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if text == '':
+        return None
+    try:
+        value = Decimal(text)
+    except (InvalidOperation, ValueError):
+        return False
+    if value < 0 or value > 100:
+        return False
+    return value.quantize(Decimal('0.01'))
+
+
+def _apply_record_margins(request, record, previous=None):
+    """Require ATISA/SD margins when Status becomes COMPLETE; clear when not COMPLETE."""
+    previous = previous or {}
+    values = record.field_values or {}
+    status = values.get('Status')
+    if status != 'COMPLETE':
+        record.apply_completion_margins()
+        return None
+
+    becoming_complete = previous.get('Status') != 'COMPLETE'
+    if not becoming_complete:
+        return None
+
+    sd_margin = _parse_margin_percent(request.POST.get('sd_margin'))
+    atisa_margin = _parse_margin_percent(request.POST.get('atisa_margin'))
+    if sd_margin in (None, False) or atisa_margin in (None, False):
+        return 'Enter ATISA and SD time margins (0–100%) when marking a timesheet COMPLETE.'
+
+    record.apply_completion_margins(sd_margin=sd_margin, atisa_margin=atisa_margin)
+    return None
+
+
 def timesheets(request):
     template = ensure_default_timesheet_template()
     month_start, month_end = current_month_range()
@@ -345,7 +407,10 @@ def submit_timesheet(request):
 
     field_values = _timesheet_field_values(template, form, request.user.username)
     record = TimesheetRecord(template=template, field_values=field_values)
-    record.freeze_margins_if_complete()
+    margin_error = _apply_record_margins(request, record)
+    if margin_error:
+        messages.error(request, margin_error)
+        return redirect('timesheets')
     record.save()
     messages.success(request, 'Timesheet entry saved.')
     return redirect('timesheets')
@@ -363,19 +428,24 @@ def edit_timesheet(request, pk):
         messages.error(request, 'Fix the highlighted fields and try again.')
         return redirect('timesheets')
 
-    blocked = _guard_complete_status(request.user, form, previous=record.field_values)
+    previous = record.field_values or {}
+    blocked = _guard_complete_status(request.user, form, previous=previous)
     if blocked:
         messages.error(request, blocked)
         return redirect('timesheets')
 
-    assigned = record.field_values.get('Assigned') or request.user.username
+    assigned = previous.get('Assigned') or request.user.username
     if not request.user.is_staff:
         assigned = request.user.username
     record.field_values = _timesheet_field_values(
-        record.template, form, assigned, previous=record.field_values,
+        record.template, form, assigned, previous=previous,
     )
-    record.freeze_margins_if_complete()
+    margin_error = _apply_record_margins(request, record, previous=previous)
+    if margin_error:
+        messages.error(request, margin_error)
+        return redirect('timesheets')
     record.save(update_fields=['field_values', 'sd_margin', 'atisa_margin'])
+    notify_admin_record_amended(record, request.user, previous)
     messages.success(request, 'Timesheet entry updated.')
     return redirect('timesheets')
 

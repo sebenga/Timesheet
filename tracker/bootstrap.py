@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 
-from .models import TimesheetRecord
+from .models import TimesheetRecord, UserProfile
 
 ADMIN_USERNAME = 'sikidosi'
 ADMIN_PASSWORD = 'Intokazi01'
@@ -41,4 +41,8 @@ def ensure_admin_user():
     user.is_active = True
     user.save()
     _migrate_assigned_username(LEGACY_ADMIN_USERNAME, ADMIN_USERNAME)
+    profile = UserProfile.for_user(user)
+    if profile.must_change_password:
+        profile.must_change_password = False
+        profile.save(update_fields=['must_change_password'])
     return user

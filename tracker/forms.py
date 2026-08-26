@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 
 from .models import Project, TimeEntry, TimeMarginSettings
 
@@ -35,6 +36,43 @@ class LoginForm(forms.Form):
     password = forms.CharField(
         widget=forms.PasswordInput(attrs={'placeholder': 'Password'}),
     )
+
+
+class FirstLoginPasswordForm(forms.Form):
+    new_password = forms.CharField(
+        label='New password',
+        min_length=8,
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'Choose a new password',
+            'autocomplete': 'new-password',
+            'autofocus': True,
+        }),
+    )
+    confirm_password = forms.CharField(
+        label='Confirm new password',
+        min_length=8,
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'Confirm new password',
+            'autocomplete': 'new-password',
+        }),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_new_password(self):
+        password = self.cleaned_data['new_password']
+        validate_password(password, user=self.user)
+        return password
+
+    def clean(self):
+        cleaned = super().clean()
+        password = cleaned.get('new_password')
+        confirm = cleaned.get('confirm_password')
+        if password and confirm and password != confirm:
+            self.add_error('confirm_password', 'Passwords do not match.')
+        return cleaned
 
 
 class CreateUserForm(forms.Form):
@@ -155,12 +193,12 @@ class TimesheetFilterForm(forms.Form):
     start = forms.DateField(
         required=False,
         label='Start date',
-        widget=forms.DateInput(attrs={'type': 'date'}),
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'date-input'}),
     )
     end = forms.DateField(
         required=False,
         label='End date',
-        widget=forms.DateInput(attrs={'type': 'date'}),
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'date-input'}),
     )
     status = forms.ChoiceField(
         required=False,
@@ -197,7 +235,7 @@ def build_timesheet_form(template, allow_complete=False):
         elif field_type == 'date':
             field_definitions[name] = forms.DateField(
                 required=False,
-                widget=forms.DateInput(attrs={'type': 'date'}),
+                widget=forms.DateInput(attrs={'type': 'date', 'class': 'date-input'}),
             )
         elif key == 'ticket id' or (field_type == 'number' and key == 'ticket id'):
             field_definitions[name] = forms.IntegerField(

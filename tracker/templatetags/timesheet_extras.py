@@ -13,4 +13,11 @@ def dict_get(mapping, key):
 
 @register.simple_tag
 def record_values_script(record):
-    return json_script(record.field_values or {}, f'record-json-{record.pk}')
+    payload = dict(record.field_values or {})
+    payload['_sd_margin'] = (
+        str(record.sd_margin) if record.sd_margin is not None else ''
+    )
+    payload['_atisa_margin'] = (
+        str(record.atisa_margin) if record.atisa_margin is not None else ''
+    )
+    return json_script(payload, f'record-json-{record.pk}')

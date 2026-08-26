@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
+    path('account/password/', views.change_password, name='change_password'),
     path('', views.dashboard, name='dashboard'),
     path('dashboard/export.xlsx', views.export_dashboard_excel, name='export_dashboard_excel'),
     path('timesheets/', views.timesheets, name='timesheets'),
@@ -18,5 +19,4 @@ urlpatterns = [
     path('console/users/create/', views.create_user, name='create_user'),
     path('console/users/<int:pk>/edit/', views.edit_user, name='edit_user'),
     path('console/users/<int:pk>/delete/', views.delete_user, name='delete_user'),
-    path('console/margins/', views.save_margins, name='save_margins'),
 ]

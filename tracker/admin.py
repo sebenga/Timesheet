@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Project, TimeEntry, TimeMarginSettings, TimesheetRecord, TimesheetTemplate
+from .models import Project, TimeEntry, TimeMarginSettings, TimesheetRecord, TimesheetTemplate, UserProfile
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ['user', 'must_change_password']
+    list_filter = ['must_change_password']
+    search_fields = ['user__username', 'user__email']
 
 
 @admin.register(TimeMarginSettings)

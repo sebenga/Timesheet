@@ -9,34 +9,61 @@
     <h1>Developer timesheets</h1>
     <p class="page-subtitle">
       Fill in ticket details and hours spent.
+      {% if user.is_staff %}
+        Marking a row COMPLETE asks for ATISA and SD margins for that record.
+      {% endif %}
     </p>
   </div>
 </section>
 
 {% if template and timesheet_form %}
-  <section class="panel">
-    <h2>Log timesheet entry</h2>
-    <form method="post" action="{% url 'submit_timesheet' %}" class="form timesheet-form">
-      {% csrf_token %}
-      <input type="hidden" name="template_id" value="{{ template.pk }}">
+  <section class="panel capture-panel" id="capture-panel">
+    <div class="panel-toolbar">
+      <h2>Log timesheet entry</h2>
+      <button
+        type="button"
+        class="btn btn-secondary btn-sm"
+        id="toggle-capture-form"
+        aria-expanded="false"
+        aria-controls="capture-form-body"
+      >Add entry</button>
+    </div>
+    <div id="capture-form-body" class="capture-form-body" hidden>
+      <form
+        method="post"
+        action="{% url 'submit_timesheet' %}"
+        class="form timesheet-form"
+        id="create-timesheet-form"
+        data-initial-status=""
+      >
+        {% csrf_token %}
+        <input type="hidden" name="template_id" value="{{ template.pk }}">
+        {% if user.is_staff %}
+          <input type="hidden" name="sd_margin" value="">
+          <input type="hidden" name="atisa_margin" value="">
+        {% endif %}
 
-      <div class="form-section">
-        <h3>Ticket details</h3>
-        <div class="field-grid">
-          {% for column, field in data_fields %}
-            <div class="field-item field-{{ column.type }}">
-              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-              {{ field }}
-              {% if field.errors %}
-                <span class="error">{{ field.errors.0 }}</span>
-              {% endif %}
-            </div>
-          {% endfor %}
+        <div class="form-section">
+          <h3>Ticket details</h3>
+          <div class="field-grid">
+            {% for column, field in data_fields %}
+              <div class="field-item field-{{ column.type }}">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                  <span class="error">{{ field.errors.0 }}</span>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
         </div>
-      </div>
 
-      <button type="submit" class="btn btn-primary">Save timesheet</button>
-    </form>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancel-capture-form">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save timesheet</button>
+        </div>
+      </form>
+    </div>
   </section>
 {% endif %}
 
@@ -119,8 +146,18 @@
           <h2 id="edit-timesheet-title">Edit timesheet entry</h2>
           <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
         </div>
-        <form id="edit-timesheet-form" method="post" action="" class="form timesheet-form">
+        <form
+          id="edit-timesheet-form"
+          method="post"
+          action=""
+          class="form timesheet-form"
+          data-initial-status=""
+        >
           {% csrf_token %}
+          {% if user.is_staff %}
+            <input type="hidden" name="sd_margin" value="">
+            <input type="hidden" name="atisa_margin" value="">
+          {% endif %}
           <div class="form-section">
             <h3>Ticket details</h3>
             <div class="field-grid">
@@ -141,26 +178,121 @@
     </div>
   </div>
 {% endif %}
+
+{% if user.is_staff %}
+  <div id="complete-margin-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-margin-modal></div>
+    <div class="modal-dialog modal-dialog-sm" role="dialog" aria-modal="true" aria-labelledby="complete-margin-title">
+      <section class="panel modal-panel">
+        <div class="modal-header">
+          <h2 id="complete-margin-title">Set time margins</h2>
+          <button type="button" class="modal-close" data-close-margin-modal aria-label="Close">&times;</button>
+        </div>
+        <p class="panel-help">
+          Enter margins for this COMPLETE record (0–100%). They apply only to this timesheet.
+        </p>
+        <form id="complete-margin-form" class="form" onsubmit="return false;">
+          <label for="margin-atisa">ATISA time margin (%)</label>
+          <input
+            id="margin-atisa"
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            placeholder="e.g. 35"
+            required
+          >
+          <label for="margin-sd">SD time margin (%)</label>
+          <input
+            id="margin-sd"
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            placeholder="e.g. 10"
+            required
+          >
+          <p id="margin-error" class="error" hidden>Enter both margins between 0 and 100.</p>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" data-close-margin-modal>Cancel</button>
+            <button type="submit" class="btn btn-primary">Confirm COMPLETE</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
   (function () {
-    const modal = document.getElementById('edit-timesheet-modal');
-    const form = document.getElementById('edit-timesheet-form');
     const allowComplete = {{ user.is_staff|yesno:"true,false" }};
-    if (!modal || !form) return;
+    const editModal = document.getElementById('edit-timesheet-modal');
+    const editForm = document.getElementById('edit-timesheet-form');
+    const createForm = document.getElementById('create-timesheet-form');
+    const capturePanel = document.getElementById('capture-panel');
+    const captureBody = document.getElementById('capture-form-body');
+    const toggleCapture = document.getElementById('toggle-capture-form');
+    const cancelCapture = document.getElementById('cancel-capture-form');
+    const marginModal = document.getElementById('complete-margin-modal');
+    const marginForm = document.getElementById('complete-margin-form');
+    const marginAtisa = document.getElementById('margin-atisa');
+    const marginSd = document.getElementById('margin-sd');
+    const marginError = document.getElementById('margin-error');
+    let pendingForm = null;
+    let skipMarginPrompt = false;
 
-    function closeModal() {
-      modal.hidden = true;
+    function setCaptureOpen(open) {
+      if (!captureBody || !toggleCapture) return;
+      captureBody.hidden = !open;
+      toggleCapture.setAttribute('aria-expanded', open ? 'true' : 'false');
+      toggleCapture.textContent = open ? 'Hide form' : 'Add entry';
+      if (capturePanel) capturePanel.classList.toggle('is-open', open);
+      if (open && createForm) {
+        const first = createForm.querySelector('input:not([type="hidden"]), select, textarea');
+        if (first) first.focus();
+      }
     }
 
-    function statusSelect() {
-      return form.querySelector('select[name="Status"]');
+    if (toggleCapture) {
+      toggleCapture.addEventListener('click', function () {
+        setCaptureOpen(captureBody.hidden);
+      });
+    }
+    if (cancelCapture) {
+      cancelCapture.addEventListener('click', function () {
+        setCaptureOpen(false);
+      });
     }
 
-    function setCompleteLocked(locked) {
-      const select = statusSelect();
+    function closeEditModal() {
+      if (editModal) editModal.hidden = true;
+    }
+
+    function closeMarginModal() {
+      if (!marginModal) return;
+      marginModal.hidden = true;
+      pendingForm = null;
+      if (marginError) marginError.hidden = true;
+    }
+
+    function statusSelect(form) {
+      return form ? form.querySelector('select[name="Status"]') : null;
+    }
+
+    function currentStatus(form) {
+      const select = statusSelect(form);
+      if (!select) return '';
+      if (select.disabled) {
+        const hidden = form.querySelector('input[type="hidden"][name="Status"]');
+        return hidden ? hidden.value : select.value;
+      }
+      return select.value;
+    }
+
+    function setCompleteLocked(form, locked) {
+      const select = statusSelect(form);
       if (!select) return;
       let hidden = form.querySelector('input[type="hidden"][name="Status"]');
       const completeOption = [...select.options].find(function (option) {
@@ -185,10 +317,11 @@
       }
     }
 
-    function fillForm(values) {
-      setCompleteLocked(false);
+    function fillForm(form, values) {
+      setCompleteLocked(form, false);
       form.querySelectorAll('input, select, textarea').forEach(function (field) {
         if (field.type === 'hidden' || field.name === 'csrfmiddlewaretoken') return;
+        if (field.name === 'sd_margin' || field.name === 'atisa_margin') return;
         const value = values[field.name];
         if (value === undefined || value === null) {
           field.value = '';
@@ -196,30 +329,116 @@
         }
         field.value = value;
       });
+      const sd = form.querySelector('input[name="sd_margin"]');
+      const atisa = form.querySelector('input[name="atisa_margin"]');
+      if (sd) sd.value = values._sd_margin || '';
+      if (atisa) atisa.value = values._atisa_margin || '';
+      form.dataset.initialStatus = values.Status || '';
       if (!allowComplete && values.Status === 'COMPLETE') {
-        setCompleteLocked(true);
+        setCompleteLocked(form, true);
       }
     }
 
-    if (!allowComplete) setCompleteLocked(false);
+    function openMarginModal(form) {
+      if (!marginModal || !marginForm) {
+        form.submit();
+        return;
+      }
+      pendingForm = form;
+      const existingAtisa = form.querySelector('input[name="atisa_margin"]');
+      const existingSd = form.querySelector('input[name="sd_margin"]');
+      if (marginAtisa) marginAtisa.value = existingAtisa ? existingAtisa.value : '';
+      if (marginSd) marginSd.value = existingSd ? existingSd.value : '';
+      if (marginError) marginError.hidden = true;
+      marginModal.hidden = false;
+      if (marginAtisa) marginAtisa.focus();
+    }
 
-    document.querySelectorAll('.edit-timesheet-btn').forEach(function (button) {
-      button.addEventListener('click', function () {
-        const recordId = button.getAttribute('data-record-id');
-        const payload = document.getElementById('record-json-' + recordId);
-        if (!payload) return;
-        fillForm(JSON.parse(payload.textContent));
-        form.action = button.getAttribute('data-edit-url');
-        modal.hidden = false;
+    function needsMarginPrompt(form) {
+      if (!allowComplete) return false;
+      const status = currentStatus(form);
+      const initial = form.dataset.initialStatus || '';
+      return status === 'COMPLETE' && initial !== 'COMPLETE';
+    }
+
+    function interceptSubmit(form) {
+      if (!form) return;
+      form.addEventListener('submit', function (event) {
+        if (skipMarginPrompt) {
+          skipMarginPrompt = false;
+          return;
+        }
+        if (!needsMarginPrompt(form)) return;
+        event.preventDefault();
+        openMarginModal(form);
       });
-    });
+    }
 
-    modal.querySelectorAll('[data-close-modal]').forEach(function (el) {
-      el.addEventListener('click', closeModal);
-    });
+    if (!allowComplete && editForm) setCompleteLocked(editForm, false);
+
+    if (editForm) {
+      document.querySelectorAll('.edit-timesheet-btn').forEach(function (button) {
+        button.addEventListener('click', function () {
+          const recordId = button.getAttribute('data-record-id');
+          const payload = document.getElementById('record-json-' + recordId);
+          if (!payload) return;
+          fillForm(editForm, JSON.parse(payload.textContent));
+          editForm.action = button.getAttribute('data-edit-url');
+          editModal.hidden = false;
+        });
+      });
+
+      editModal.querySelectorAll('[data-close-modal]').forEach(function (el) {
+        el.addEventListener('click', closeEditModal);
+      });
+    }
+
+    interceptSubmit(createForm);
+    interceptSubmit(editForm);
+
+    if (marginForm) {
+      marginForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        if (!pendingForm) return;
+        const atisa = marginAtisa ? marginAtisa.value.trim() : '';
+        const sd = marginSd ? marginSd.value.trim() : '';
+        const atisaNum = Number(atisa);
+        const sdNum = Number(sd);
+        if (
+          atisa === '' || sd === '' ||
+          Number.isNaN(atisaNum) || Number.isNaN(sdNum) ||
+          atisaNum < 0 || atisaNum > 100 ||
+          sdNum < 0 || sdNum > 100
+        ) {
+          if (marginError) marginError.hidden = false;
+          return;
+        }
+        const atisaField = pendingForm.querySelector('input[name="atisa_margin"]');
+        const sdField = pendingForm.querySelector('input[name="sd_margin"]');
+        if (atisaField) atisaField.value = atisa;
+        if (sdField) sdField.value = sd;
+        const formToSubmit = pendingForm;
+        closeMarginModal();
+        skipMarginPrompt = true;
+        if (typeof formToSubmit.requestSubmit === 'function') {
+          formToSubmit.requestSubmit();
+        } else {
+          formToSubmit.submit();
+        }
+      });
+
+      marginModal.querySelectorAll('[data-close-margin-modal]').forEach(function (el) {
+        el.addEventListener('click', closeMarginModal);
+      });
+    }
 
     document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape' && !modal.hidden) closeModal();
+      if (event.key !== 'Escape') return;
+      if (marginModal && !marginModal.hidden) {
+        closeMarginModal();
+        return;
+      }
+      if (editModal && !editModal.hidden) closeEditModal();
     });
   })();
 </script>

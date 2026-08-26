@@ -2,7 +2,7 @@ from collections import OrderedDict
 from decimal import Decimal, ROUND_HALF_UP
 
 from .bootstrap import ADMIN_USERNAME, LEGACY_ADMIN_USERNAME
-from .models import TimeMarginSettings, TimesheetRecord
+from .models import TimesheetRecord
 from .timesheet_defaults import DEFAULT_COLUMNS
 from .timesheet_query import current_month_range, filter_timesheet_records
 
@@ -51,15 +51,14 @@ def apply_user_plus_sd_percent(user_hours, total_hours, percent, rounder=round_n
     return rounder(user + (total * rate))
 
 
-def _margins_for_record(record, fallback):
-    sd = record.sd_margin if record.sd_margin is not None else fallback.sd_margin
-    atisa = record.atisa_margin if record.atisa_margin is not None else fallback.atisa_margin
+def _margins_for_record(record):
+    sd = record.sd_margin if record.sd_margin is not None else Decimal('0')
+    atisa = record.atisa_margin if record.atisa_margin is not None else Decimal('0')
     return sd, atisa
 
 
 def build_completed_month_summary():
     start, end = current_month_range()
-    fallback_margins = TimeMarginSettings.get_solo()
     records = filter_timesheet_records(
         TimesheetRecord.objects.select_related('template'),
         start,
@@ -78,7 +77,7 @@ def build_completed_month_summary():
         ticket_key = str(ticket_id)
         assigned = (values.get('Assigned') or 'Unassigned').strip() or 'Unassigned'
         hours = _to_decimal(values.get('Hours spent'))
-        sd_margin, atisa_margin = _margins_for_record(record, fallback_margins)
+        sd_margin, atisa_margin = _margins_for_record(record)
 
         if assigned not in users:
             users.append(assigned)
@@ -170,7 +169,5 @@ def build_completed_month_summary():
         'rows': rows,
         'totals': totals,
         'detail_columns': DETAIL_COLUMNS,
-        'sd_margin': fallback_margins.sd_margin,
-        'atisa_margin': fallback_margins.atisa_margin,
         'admin_username': ADMIN_USERNAME,
     }

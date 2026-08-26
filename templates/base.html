@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Timesheet Manager{% endblock %}</title>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=10">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=13">
 </head>
 <body>
   <header class="header">
@@ -46,6 +46,31 @@
       <p>Local SQLite storage &middot; <code>data/timeshit.db</code></p>
     </div>
   </footer>
+  <script>
+    (function () {
+      function openDatePicker(input) {
+        if (!input || input.disabled || input.readOnly) return;
+        if (typeof input.showPicker !== 'function') return;
+        try {
+          input.showPicker();
+        } catch (err) {
+          // Some browsers only allow showPicker after a direct user gesture.
+        }
+      }
+
+      document.addEventListener('focusin', function (event) {
+        if (event.target.matches('input[type="date"]')) {
+          openDatePicker(event.target);
+        }
+      });
+
+      document.addEventListener('click', function (event) {
+        if (event.target.matches('input[type="date"]')) {
+          openDatePicker(event.target);
+        }
+      });
+    })();
+  </script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -235,6 +235,11 @@ body {
   cursor: not-allowed;
 }
 
+input[type="date"],
+.date-input {
+  cursor: pointer;
+}
+
 .resource-field input {
   text-align: center;
   font-weight: 600;
@@ -337,6 +342,30 @@ main {
   font-size: 1.1rem;
   margin-bottom: 1rem;
   color: var(--text);
+}
+
+.panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.panel-toolbar h2 {
+  margin-bottom: 0;
+}
+
+.capture-panel.is-open .panel-toolbar {
+  margin-bottom: 0.85rem;
+}
+
+.capture-form-body {
+  border-top: 1px solid var(--border);
+  padding-top: 0.85rem;
+}
+
+.capture-panel .panel-toolbar .btn {
+  margin-top: 0;
 }
 
 .form label {
@@ -591,6 +620,10 @@ main {
   z-index: 1001;
   width: min(960px, 100%);
   margin: auto;
+}
+
+.modal-dialog-sm {
+  width: min(420px, 100%);
 }
 
 .modal-panel {
