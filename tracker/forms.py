@@ -189,7 +189,7 @@ def status_choices_for(allow_complete):
     return [('', 'Select status')] + RESOURCE_STATUS_CHOICES
 
 
-class TimesheetFilterForm(forms.Form):
+class DateRangeSearchForm(forms.Form):
     start = forms.DateField(
         required=False,
         label='Start date',
@@ -200,12 +200,25 @@ class TimesheetFilterForm(forms.Form):
         label='End date',
         widget=forms.DateInput(attrs={'type': 'date', 'class': 'date-input'}),
     )
+    q = forms.CharField(
+        required=False,
+        label='Search',
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Ticket, assignee, comment…',
+            'class': 'search-input',
+        }),
+    )
+
+
+class TimesheetFilterForm(DateRangeSearchForm):
     status = forms.ChoiceField(
         required=False,
         label='Status',
         choices=[('', 'All statuses')] + STATUS_CHOICES,
         widget=forms.Select(),
     )
+
+    field_order = ['start', 'end', 'status', 'q']
 
 
 def build_timesheet_form(template, allow_complete=False):

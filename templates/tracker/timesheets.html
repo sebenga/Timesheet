@@ -82,6 +82,10 @@
       <label for="{{ filter_form.status.id_for_label }}">{{ filter_form.status.label }}</label>
       {{ filter_form.status }}
     </div>
+    <div class="field-item field-search">
+      <label for="{{ filter_form.q.id_for_label }}">{{ filter_form.q.label }}</label>
+      {{ filter_form.q }}
+    </div>
     <div class="filter-actions">
       <button type="submit" class="btn btn-secondary">Search</button>
       <a href="{% url 'timesheets' %}" class="btn btn-secondary">This month</a>
@@ -133,7 +137,7 @@
       </table>
     </div>
   {% else %}
-    <p class="empty">No timesheet entries found for this date range{% if filter_status %} and status{% endif %}.</p>
+    <p class="empty">No timesheet entries found for this date range{% if filter_status %} and status{% endif %}{% if filter_query %} and search{% endif %}.</p>
   {% endif %}
 </section>
 

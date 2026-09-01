@@ -65,8 +65,24 @@ def _margins_for_record(record):
     return sd, atisa
 
 
-def build_completed_month_summary():
-    start, end = current_month_range()
+def _row_matches_query(row, users, query):
+    needle = (query or '').strip().lower()
+    if not needle:
+        return True
+    parts = [str(value) for value in row['details'].values() if value not in (None, '')]
+    parts.append(str(row['total_hours']))
+    parts.append(str(row['atisa_total_decimal']))
+    parts.append(str(row['admin_sd_total_decimal']))
+    for user in users:
+        parts.append(user)
+        parts.append(str(row['user_hours'].get(user, '')))
+    return needle in ' '.join(parts).lower()
+
+
+def build_completed_month_summary(start=None, end=None, query=''):
+    month_start, month_end = current_month_range()
+    start = start or month_start
+    end = end or month_end
     records = filter_timesheet_records(
         TimesheetRecord.objects.select_related('template'),
         start,
@@ -136,6 +152,25 @@ def build_completed_month_summary():
         key=str.lower,
     )
     rows = []
+
+    for row in grouped.values():
+        user_hours = {user: row['user_hours'].get(user, Decimal('0')) for user in users}
+        row['details']['Assigned'] = ', '.join(
+            user for user in users if user_hours[user] > 0
+        )
+        prepared = {
+            'details': row['details'],
+            'user_hours': user_hours,
+            'total_hours': row['total_hours'],
+            'atisa_total': row['atisa_total'],
+            'atisa_total_decimal': row['atisa_total_decimal'],
+            'sd_total': row['sd_total'],
+            'admin_sd_total': row['admin_sd_total'],
+            'admin_sd_total_decimal': row['admin_sd_total_decimal'],
+        }
+        if _row_matches_query(prepared, users, query):
+            rows.append(prepared)
+
     totals = {
         'total_hours': Decimal('0'),
         'user_hours': {user: Decimal('0') for user in users},
@@ -145,22 +180,7 @@ def build_completed_month_summary():
         'atisa_total_decimal': Decimal('0'),
         'admin_sd_total_decimal': Decimal('0'),
     }
-
-    for row in grouped.values():
-        user_hours = {user: row['user_hours'].get(user, Decimal('0')) for user in users}
-        row['details']['Assigned'] = ', '.join(
-            user for user in users if user_hours[user] > 0
-        )
-        rows.append({
-            'details': row['details'],
-            'user_hours': user_hours,
-            'total_hours': row['total_hours'],
-            'atisa_total': row['atisa_total'],
-            'atisa_total_decimal': row['atisa_total_decimal'],
-            'sd_total': row['sd_total'],
-            'admin_sd_total': row['admin_sd_total'],
-            'admin_sd_total_decimal': row['admin_sd_total_decimal'],
-        })
+    for row in rows:
         totals['total_hours'] += row['total_hours']
         totals['atisa_total'] += row['atisa_total']
         totals['atisa_total_decimal'] += row['atisa_total_decimal']
@@ -168,7 +188,7 @@ def build_completed_month_summary():
         totals['admin_sd_total'] += row['admin_sd_total']
         totals['admin_sd_total_decimal'] += row['admin_sd_total_decimal']
         for user in users:
-            totals['user_hours'][user] += user_hours[user]
+            totals['user_hours'][user] += row['user_hours'][user]
 
     return {
         'start': start,
@@ -178,4 +198,5 @@ def build_completed_month_summary():
         'totals': totals,
         'detail_columns': DETAIL_COLUMNS,
         'admin_username': ADMIN_USERNAME,
+        'query': query,
     }
