@@ -12,10 +12,28 @@
       margins set when each record was marked COMPLETE.
     </p>
   </div>
-  <a href="{% url 'export_dashboard_excel' %}" class="btn btn-primary">Export to Excel</a>
+  <a href="{% url 'export_dashboard_excel' %}?{{ request.GET.urlencode }}" class="btn btn-primary">Export to Excel</a>
 </section>
 
 <section class="panel">
+  <form method="get" action="{% url 'dashboard' %}" class="filter-bar filter-bar-dashboard">
+    <div class="field-item">
+      <label for="{{ filter_form.start.id_for_label }}">{{ filter_form.start.label }}</label>
+      {{ filter_form.start }}
+    </div>
+    <div class="field-item">
+      <label for="{{ filter_form.end.id_for_label }}">{{ filter_form.end.label }}</label>
+      {{ filter_form.end }}
+    </div>
+    <div class="field-item field-search">
+      <label for="{{ filter_form.q.id_for_label }}">{{ filter_form.q.label }}</label>
+      {{ filter_form.q }}
+    </div>
+    <div class="filter-actions">
+      <button type="submit" class="btn btn-secondary">Search</button>
+      <a href="{% url 'dashboard' %}" class="btn btn-secondary">This month</a>
+    </div>
+  </form>
   {% if rows %}
     <div class="table-scroll">
       <table class="entries-table timesheet-table dashboard-table">
@@ -66,7 +84,7 @@
       </table>
     </div>
   {% else %}
-    <p class="empty">No COMPLETE timesheets found for the current month.</p>
+    <p class="empty">No COMPLETE timesheets found for this date range{% if query %} and search{% endif %}.</p>
   {% endif %}
 </section>
 {% endblock %}

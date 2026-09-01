@@ -14,6 +14,7 @@ from openpyxl import Workbook
 from .dashboard_summary import build_completed_month_summary
 from .forms import (
     CreateUserForm,
+    DateRangeSearchForm,
     EditUserForm,
     FirstLoginPasswordForm,
     LoginForm,
@@ -25,7 +26,7 @@ from .forms import (
 from .models import TimesheetRecord, TimesheetTemplate, UserProfile
 from .notifications import notify_admin_record_amended
 from .timesheet_defaults import ensure_default_timesheet_template
-from .timesheet_query import current_month_range, filter_timesheet_records
+from .timesheet_query import current_month_range, filter_timesheet_records, parse_range_filters
 
 
 def staff_required(view):
@@ -181,16 +182,31 @@ def delete_user(request, pk):
     return redirect('admin_console')
 
 
+def _dashboard_summary(request):
+    month_start, month_end = current_month_range()
+    filter_form = DateRangeSearchForm(request.GET or None)
+    start, end, query, _status, _custom = parse_range_filters(
+        filter_form, month_start, month_end,
+    )
+    if not filter_form.is_bound:
+        filter_form = DateRangeSearchForm(initial={
+            'start': month_start,
+            'end': month_end,
+        })
+    summary = build_completed_month_summary(start=start, end=end, query=query)
+    summary['filter_form'] = filter_form
+    return summary
+
+
 @staff_required
 def dashboard(request):
-    summary = build_completed_month_summary()
-    return render(request, 'tracker/dashboard.html', summary)
+    return render(request, 'tracker/dashboard.html', _dashboard_summary(request))
 
 
 @staff_required
 @require_GET
 def export_dashboard_excel(request):
-    summary = build_completed_month_summary()
+    summary = _dashboard_summary(request)
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = 'Completed timesheets'
@@ -322,23 +338,9 @@ def timesheets(request):
     template = ensure_default_timesheet_template()
     month_start, month_end = current_month_range()
     filter_form = TimesheetFilterForm(request.GET or None)
-
-    start = month_start
-    end = month_end
-    status = ''
-    using_custom_range = False
-
-    if filter_form.is_valid():
-        if filter_form.cleaned_data.get('start'):
-            start = filter_form.cleaned_data['start']
-            using_custom_range = True
-        if filter_form.cleaned_data.get('end'):
-            end = filter_form.cleaned_data['end']
-            using_custom_range = True
-        status = filter_form.cleaned_data.get('status') or ''
-
-    if start and end and start > end:
-        start, end = end, start
+    start, end, query, status, using_custom_range = parse_range_filters(
+        filter_form, month_start, month_end,
+    )
 
     if not filter_form.is_bound:
         filter_form = TimesheetFilterForm(initial={
@@ -353,6 +355,7 @@ def timesheets(request):
             start,
             end,
             status,
+            query,
         )
         if not request.user.is_staff:
             records = records.filter(field_values__Assigned=request.user.username)
@@ -387,6 +390,7 @@ def timesheets(request):
         'filter_form': filter_form,
         'using_custom_range': using_custom_range,
         'filter_status': status,
+        'filter_query': query,
     })
 
 

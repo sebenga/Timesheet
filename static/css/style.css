@@ -555,10 +555,18 @@ main {
 
 .filter-bar {
   display: grid;
-  grid-template-columns: repeat(3, minmax(160px, 1fr)) auto;
+  grid-template-columns: repeat(4, minmax(140px, 1fr)) auto;
   gap: 1rem;
   align-items: end;
   margin-bottom: 1.25rem;
+}
+
+.filter-bar-dashboard {
+  grid-template-columns: repeat(3, minmax(140px, 1fr)) auto;
+}
+
+.filter-bar .field-search {
+  min-width: 0;
 }
 
 .filter-actions {
