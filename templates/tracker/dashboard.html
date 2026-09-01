@@ -58,14 +58,14 @@
               {% for name in detail_columns %}
                 <td>{{ row.details|dict_get:name|default:"—" }}</td>
               {% endfor %}
-              <td>{{ row.total_hours }}h</td>
+              <td>{{ row.total_hours|hours_label }}</td>
               {% for user in users %}
-                <td>{{ row.user_hours|dict_get:user }}h</td>
+                <td>{{ row.user_hours|dict_get:user|hours_label }}</td>
               {% endfor %}
               <td>{{ row.atisa_margin_display }}</td>
-              <td>{{ row.atisa_total_decimal }}h</td>
+              <td>{{ row.atisa_total_decimal|hours_label }}</td>
               <td>{{ row.admin_margin_display }}</td>
-              <td>{{ row.admin_sd_total_decimal }}h</td>
+              <td>{{ row.admin_sd_total_decimal|hours_label }}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -77,14 +77,14 @@
                 <td></td>
               {% endif %}
             {% endfor %}
-            <td>{{ totals.total_hours }}h</td>
+            <td>{{ totals.total_hours|hours_label }}</td>
             {% for user in users %}
-              <td>{{ totals.user_hours|dict_get:user }}h</td>
+              <td>{{ totals.user_hours|dict_get:user|hours_label }}</td>
             {% endfor %}
             <td>{{ totals.atisa_margin_display }}</td>
-            <td>{{ totals.atisa_total_decimal }}h</td>
+            <td>{{ totals.atisa_total_decimal|hours_label }}</td>
             <td>{{ totals.admin_margin_display }}</td>
-            <td>{{ totals.admin_sd_total_decimal }}h</td>
+            <td>{{ totals.admin_sd_total_decimal|hours_label }}</td>
           </tr>
         </tfoot>
       </table>

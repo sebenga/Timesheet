@@ -1,6 +1,8 @@
 from django import template
 from django.utils.html import json_script
 
+from tracker.dashboard_summary import format_hours
+
 register = template.Library()
 
 
@@ -9,6 +11,13 @@ def dict_get(mapping, key):
     if not mapping:
         return ''
     return mapping.get(key, '')
+
+
+@register.filter
+def hours_label(value):
+    if value in (None, ''):
+        return '0h'
+    return f'{format_hours(value)}h'
 
 
 @register.simple_tag

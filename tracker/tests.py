@@ -3,7 +3,13 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 
-from tracker.dashboard_summary import build_completed_month_summary, format_margin_display
+from tracker.dashboard_summary import (
+    build_completed_month_summary,
+    format_hours,
+    format_margin_display,
+    round_hours,
+    round_whole_hours,
+)
 from tracker.models import TimesheetRecord, TimesheetTemplate
 from tracker.timesheet_query import filter_timesheet_records
 
@@ -61,8 +67,10 @@ class TableSearchTests(TestCase):
     def test_dashboard_margin_columns(self):
         summary = build_completed_month_summary()
         row = summary['rows'][0]
-        self.assertEqual(row['atisa_margin_display'], '0.70h @ 35%')
-        self.assertEqual(row['admin_margin_display'], '0.20h @ 10%')
+        self.assertEqual(row['atisa_margin_display'], '1h @ 35%')
+        self.assertEqual(row['admin_margin_display'], '0h @ 10%')
+        self.assertEqual(row['atisa_total_decimal'], Decimal('3'))
+        self.assertEqual(row['admin_sd_total_decimal'], Decimal('2'))
 
         empty = build_completed_month_summary(query='does-not-exist')
         self.assertEqual(empty['rows'], [])
@@ -72,3 +80,16 @@ class TableSearchTests(TestCase):
             format_margin_display(Decimal('3'), {Decimal('10'), Decimal('35')}),
             '3h @ 10/35%',
         )
+
+    def test_hours_round_to_one_decimal(self):
+        self.assertEqual(round_hours(Decimal('2.35')), Decimal('2.4'))
+        self.assertEqual(round_hours(Decimal('2.34')), Decimal('2.3'))
+        self.assertEqual(format_hours(Decimal('0.70')), '0.7')
+        self.assertEqual(format_hours(Decimal('2')), '2')
+
+    def test_margin_and_total_hours_round_to_whole(self):
+        self.assertEqual(round_whole_hours(Decimal('2.4')), Decimal('2'))
+        self.assertEqual(round_whole_hours(Decimal('2.5')), Decimal('3'))
+        self.assertEqual(round_whole_hours(Decimal('2.6')), Decimal('3'))
+        self.assertEqual(round_whole_hours(Decimal('0.2')), Decimal('0'))
+        self.assertEqual(round_whole_hours(Decimal('0.7')), Decimal('1'))
