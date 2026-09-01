@@ -214,7 +214,9 @@ def export_dashboard_excel(request):
     headers = list(summary['detail_columns']) + ['Hours spent']
     headers += [f'{user} hours' for user in summary['users']]
     headers += [
+        'ATISA Margin',
         'ATISA Total Hours',
+        f'{summary["admin_username"]} Margin',
         f'{summary["admin_username"]} Total Hours',
     ]
     sheet.append(headers)
@@ -223,7 +225,9 @@ def export_dashboard_excel(request):
         values = [row['details'].get(name, '') or '' for name in summary['detail_columns']]
         values.append(float(row['total_hours']))
         values.extend(float(row['user_hours'][user]) for user in summary['users'])
+        values.append(row['atisa_margin_display'])
         values.append(float(row['atisa_total_decimal']))
+        values.append(row['admin_margin_display'])
         values.append(float(row['admin_sd_total_decimal']))
         sheet.append(values)
 
@@ -231,7 +235,9 @@ def export_dashboard_excel(request):
     footer = ['Totals'] + [''] * (len(summary['detail_columns']) - 1)
     footer.append(float(totals['total_hours']))
     footer.extend(float(totals['user_hours'][user]) for user in summary['users'])
+    footer.append(totals['atisa_margin_display'])
     footer.append(float(totals['atisa_total_decimal']))
+    footer.append(totals['admin_margin_display'])
     footer.append(float(totals['admin_sd_total_decimal']))
     sheet.append(footer)
 

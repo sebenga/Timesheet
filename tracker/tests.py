@@ -1,8 +1,9 @@
 from django.core.files.base import ContentFile
+from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 
-from tracker.dashboard_summary import build_completed_month_summary
+from tracker.dashboard_summary import build_completed_month_summary, format_margin_display
 from tracker.models import TimesheetRecord, TimesheetTemplate
 from tracker.timesheet_query import filter_timesheet_records
 
@@ -57,5 +58,17 @@ class TableSearchTests(TestCase):
         self.assertEqual(len(summary['rows']), 1)
         self.assertEqual(summary['rows'][0]['details']['Ticket ID'], '1001')
 
+    def test_dashboard_margin_columns(self):
+        summary = build_completed_month_summary()
+        row = summary['rows'][0]
+        self.assertEqual(row['atisa_margin_display'], '0.70h @ 35%')
+        self.assertEqual(row['admin_margin_display'], '0.20h @ 10%')
+
         empty = build_completed_month_summary(query='does-not-exist')
         self.assertEqual(empty['rows'], [])
+
+    def test_format_margin_display_multiple_percents(self):
+        self.assertEqual(
+            format_margin_display(Decimal('3'), {Decimal('10'), Decimal('35')}),
+            '3h @ 10/35%',
+        )

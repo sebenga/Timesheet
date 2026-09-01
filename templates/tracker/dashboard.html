@@ -8,8 +8,8 @@
   <div>
     <h1>Completed timesheets</h1>
     <p class="page-subtitle">
-      Tickets are grouped by Ticket ID. ATISA Total Hours =
-      Hours spent + SD margin + ATISA margin (per record).
+      Tickets are grouped by Ticket ID. Margin columns show margin hours @ the margin %
+      used on each record. ATISA Total Hours = Hours spent + SD margin + ATISA margin.
     </p>
   </div>
   <a href="{% url 'export_dashboard_excel' %}?{{ request.GET.urlencode }}" class="btn btn-primary">Export to Excel</a>
@@ -46,7 +46,9 @@
             {% for user in users %}
               <th>{{ user }}</th>
             {% endfor %}
+            <th>ATISA Margin</th>
             <th>ATISA Total Hours</th>
+            <th>{{ admin_username }} Margin</th>
             <th>{{ admin_username }} Total Hours</th>
           </tr>
         </thead>
@@ -60,7 +62,9 @@
               {% for user in users %}
                 <td>{{ row.user_hours|dict_get:user }}h</td>
               {% endfor %}
+              <td>{{ row.atisa_margin_display }}</td>
               <td>{{ row.atisa_total_decimal }}h</td>
+              <td>{{ row.admin_margin_display }}</td>
               <td>{{ row.admin_sd_total_decimal }}h</td>
             </tr>
           {% endfor %}
@@ -77,7 +81,9 @@
             {% for user in users %}
               <td>{{ totals.user_hours|dict_get:user }}h</td>
             {% endfor %}
+            <td>{{ totals.atisa_margin_display }}</td>
             <td>{{ totals.atisa_total_decimal }}h</td>
+            <td>{{ totals.admin_margin_display }}</td>
             <td>{{ totals.admin_sd_total_decimal }}h</td>
           </tr>
         </tfoot>
