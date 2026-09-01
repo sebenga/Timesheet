@@ -8,8 +8,8 @@
   <div>
     <h1>Completed timesheets</h1>
     <p class="page-subtitle">
-      Tickets are grouped by Ticket ID. ATISA and {{ admin_username }} totals use the
-      margins set when each record was marked COMPLETE.
+      Tickets are grouped by Ticket ID. ATISA Total Hours =
+      Hours spent + SD margin + ATISA margin (per record).
     </p>
   </div>
   <a href="{% url 'export_dashboard_excel' %}" class="btn btn-primary">Export to Excel</a>

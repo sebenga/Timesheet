@@ -44,6 +44,14 @@ def apply_margin(total_hours, percent, rounder=round_nearest_10):
     return rounder(total + (total * rate))
 
 
+def apply_atisa_total(hours, sd_percent, atisa_percent, rounder=round_nearest_decimal):
+    """Hours spent + SD margin + ATISA margin (each as % of hours spent)."""
+    total = _to_decimal(hours)
+    sd_rate = _to_decimal(sd_percent) / Decimal('100')
+    atisa_rate = _to_decimal(atisa_percent) / Decimal('100')
+    return rounder(total + (total * sd_rate) + (total * atisa_rate))
+
+
 def apply_user_plus_sd_percent(user_hours, total_hours, percent, rounder=round_nearest_10):
     user = _to_decimal(user_hours)
     total = _to_decimal(total_hours)
@@ -103,8 +111,8 @@ def build_completed_month_summary():
 
         row['user_hours'][assigned] = row['user_hours'].get(assigned, Decimal('0')) + hours
         row['total_hours'] += hours
-        row['atisa_total'] += apply_margin(hours, atisa_margin)
-        row['atisa_total_decimal'] += apply_margin(hours, atisa_margin, round_nearest_decimal)
+        row['atisa_total'] += apply_atisa_total(hours, sd_margin, atisa_margin, round_nearest_10)
+        row['atisa_total_decimal'] += apply_atisa_total(hours, sd_margin, atisa_margin)
         row['sd_total'] += apply_margin(hours, sd_margin)
 
         assigned_key = assigned
