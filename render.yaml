@@ -21,6 +21,6 @@ services:
 
 databases:
   - name: atisa-timesheet-db
-    plan: free
+    plan: 0.1c-256mb
     databaseName: timesheet
     user: timesheet
