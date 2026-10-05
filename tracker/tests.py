@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from decimal import Decimal
 from django.test import TestCase
@@ -68,9 +69,9 @@ class TableSearchTests(TestCase):
         summary = build_completed_month_summary()
         row = summary['rows'][0]
         self.assertEqual(row['atisa_margin_display'], '1h @ 35%')
-        self.assertEqual(row['admin_margin_display'], '0h @ 10%')
         self.assertEqual(row['atisa_total_decimal'], Decimal('3'))
-        self.assertEqual(row['admin_sd_total_decimal'], Decimal('2'))
+        self.assertNotIn('admin_margin_display', row)
+        self.assertNotIn('admin_sd_total_decimal', row)
 
         empty = build_completed_month_summary(query='does-not-exist')
         self.assertEqual(empty['rows'], [])
@@ -79,6 +80,37 @@ class TableSearchTests(TestCase):
         self.assertEqual(
             format_margin_display(Decimal('3'), {Decimal('10'), Decimal('35')}),
             '3h @ 10/35%',
+        )
+
+    def test_same_user_cannot_reuse_ticket_id(self):
+        self.template.columns = [
+            {'name': 'Ticket ID', 'type': 'number', 'is_resource': False},
+            {'name': 'Hours spent', 'type': 'hours', 'is_resource': False},
+            {'name': 'Assigned', 'type': 'text', 'is_resource': False},
+        ]
+        self.template.save(update_fields=['columns'])
+        user = User.objects.create_user('carol', password='password12345')
+        other = User.objects.create_user('dave', password='password12345')
+        self.client.force_login(user)
+        payload = {
+            'template_id': self.template.pk,
+            'Ticket ID': '1001',
+            'Hours spent': '1',
+        }
+        first = self.client.post('/timesheets/submit/', payload)
+        self.assertEqual(first.status_code, 302)
+        second = self.client.post('/timesheets/submit/', payload, follow=True)
+        self.assertContains(second, 'already have a timesheet for ticket ID 1001')
+        self.assertEqual(
+            TimesheetRecord.objects.filter(field_values__Assigned='carol').count(),
+            1,
+        )
+
+        self.client.force_login(other)
+        self.client.post('/timesheets/submit/', payload)
+        self.assertEqual(
+            TimesheetRecord.objects.filter(field_values__Assigned='dave').count(),
+            1,
         )
 
     def test_hours_round_to_one_decimal(self):

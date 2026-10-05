@@ -5,8 +5,9 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_not_required, user_passes_test
 from django.contrib.auth.models import User
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 from openpyxl import Workbook
@@ -216,8 +217,6 @@ def export_dashboard_excel(request):
     headers += [
         'ATISA Margin',
         'ATISA Total Hours',
-        f'{summary["admin_username"]} Margin',
-        f'{summary["admin_username"]} Total Hours',
     ]
     sheet.append(headers)
 
@@ -227,8 +226,6 @@ def export_dashboard_excel(request):
         values.extend(float(row['user_hours'][user]) for user in summary['users'])
         values.append(row['atisa_margin_display'])
         values.append(float(row['atisa_total_decimal']))
-        values.append(row['admin_margin_display'])
-        values.append(float(row['admin_sd_total_decimal']))
         sheet.append(values)
 
     totals = summary['totals']
@@ -237,8 +234,6 @@ def export_dashboard_excel(request):
     footer.extend(float(totals['user_hours'][user]) for user in summary['users'])
     footer.append(totals['atisa_margin_display'])
     footer.append(float(totals['atisa_total_decimal']))
-    footer.append(totals['admin_margin_display'])
-    footer.append(float(totals['admin_sd_total_decimal']))
     sheet.append(footer)
 
     buffer = BytesIO()
@@ -286,10 +281,41 @@ def _timesheet_field_values(template, form, assigned_username, previous=None):
     return field_values
 
 
+def _redirect_timesheets(request):
+    """Return to the timesheet list with the search the user had open."""
+    kept = QueryDict(mutable=True)
+    source = QueryDict(request.POST.get('return_query', ''))
+    for key in ('start', 'end', 'status', 'q'):
+        value = (source.get(key) or '').strip()
+        if value:
+            kept[key] = value
+    target = reverse('timesheets')
+    if kept:
+        target = f'{target}?{kept.urlencode()}'
+    return redirect(target)
+
+
 def _user_can_manage_record(user, record):
     if user.is_staff:
         return True
     return (record.field_values or {}).get('Assigned') == user.username
+
+
+def _duplicate_ticket_message(assigned, ticket_id, exclude_pk=None):
+    """One user may not reuse a Ticket ID. Other users may share it."""
+    if ticket_id in (None, ''):
+        return None
+    ticket = str(ticket_id).strip()
+    if not ticket or not assigned:
+        return None
+    matches = TimesheetRecord.objects.filter(field_values__Assigned=assigned)
+    if exclude_pk:
+        matches = matches.exclude(pk=exclude_pk)
+    for record in matches:
+        existing = str((record.field_values or {}).get('Ticket ID') or '').strip()
+        if existing == ticket:
+            return f'You already have a timesheet for ticket ID {ticket}.'
+    return None
 
 
 def _guard_complete_status(user, form, previous=None):
@@ -319,7 +345,7 @@ def _parse_margin_percent(raw):
 
 
 def _apply_record_margins(request, record, previous=None):
-    """Require ATISA/SD margins when Status becomes COMPLETE; clear when not COMPLETE."""
+    """Require an ATISA margin when Status becomes COMPLETE; clear when not COMPLETE."""
     previous = previous or {}
     values = record.field_values or {}
     status = values.get('Status')
@@ -331,12 +357,11 @@ def _apply_record_margins(request, record, previous=None):
     if not becoming_complete:
         return None
 
-    sd_margin = _parse_margin_percent(request.POST.get('sd_margin'))
     atisa_margin = _parse_margin_percent(request.POST.get('atisa_margin'))
-    if sd_margin in (None, False) or atisa_margin in (None, False):
-        return 'Enter ATISA and SD time margins (0–100%) when marking a timesheet COMPLETE.'
+    if atisa_margin in (None, False):
+        return 'Enter an ATISA time margin (0–100%) when marking a timesheet COMPLETE.'
 
-    record.apply_completion_margins(sd_margin=sd_margin, atisa_margin=atisa_margin)
+    record.apply_completion_margins(atisa_margin=atisa_margin)
     return None
 
 
@@ -408,22 +433,28 @@ def submit_timesheet(request):
 
     if not form.is_valid():
         messages.error(request, 'Fix the highlighted fields and try again.')
-        return redirect('timesheets')
+        return _redirect_timesheets(request)
 
     blocked = _guard_complete_status(request.user, form)
     if blocked:
         messages.error(request, blocked)
-        return redirect('timesheets')
+        return _redirect_timesheets(request)
 
     field_values = _timesheet_field_values(template, form, request.user.username)
+    duplicate = _duplicate_ticket_message(
+        request.user.username, field_values.get('Ticket ID'),
+    )
+    if duplicate:
+        messages.error(request, duplicate)
+        return _redirect_timesheets(request)
     record = TimesheetRecord(template=template, field_values=field_values)
     margin_error = _apply_record_margins(request, record)
     if margin_error:
         messages.error(request, margin_error)
-        return redirect('timesheets')
+        return _redirect_timesheets(request)
     record.save()
     messages.success(request, 'Timesheet entry saved.')
-    return redirect('timesheets')
+    return _redirect_timesheets(request)
 
 
 @require_POST
@@ -436,13 +467,13 @@ def edit_timesheet(request, pk):
 
     if not form.is_valid():
         messages.error(request, 'Fix the highlighted fields and try again.')
-        return redirect('timesheets')
+        return _redirect_timesheets(request)
 
     previous = record.field_values or {}
     blocked = _guard_complete_status(request.user, form, previous=previous)
     if blocked:
         messages.error(request, blocked)
-        return redirect('timesheets')
+        return _redirect_timesheets(request)
 
     assigned = previous.get('Assigned') or request.user.username
     if not request.user.is_staff:
@@ -450,14 +481,20 @@ def edit_timesheet(request, pk):
     record.field_values = _timesheet_field_values(
         record.template, form, assigned, previous=previous,
     )
+    duplicate = _duplicate_ticket_message(
+        assigned, record.field_values.get('Ticket ID'), exclude_pk=record.pk,
+    )
+    if duplicate:
+        messages.error(request, duplicate)
+        return _redirect_timesheets(request)
     margin_error = _apply_record_margins(request, record, previous=previous)
     if margin_error:
         messages.error(request, margin_error)
-        return redirect('timesheets')
+        return _redirect_timesheets(request)
     record.save(update_fields=['field_values', 'sd_margin', 'atisa_margin'])
     notify_admin_record_amended(record, request.user, previous)
     messages.success(request, 'Timesheet entry updated.')
-    return redirect('timesheets')
+    return _redirect_timesheets(request)
 
 
 @require_POST
@@ -467,7 +504,7 @@ def delete_timesheet_record(request, pk):
         return HttpResponseForbidden('You can only delete your own timesheet entries.')
     record.delete()
     messages.success(request, 'Timesheet entry deleted.')
-    return redirect('timesheets')
+    return _redirect_timesheets(request)
 
 
 @staff_required

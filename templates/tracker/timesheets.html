@@ -10,7 +10,7 @@
     <p class="page-subtitle">
       Fill in ticket details and hours spent.
       {% if user.is_staff %}
-        Marking a row COMPLETE asks for ATISA and SD margins for that record.
+        Marking a row COMPLETE asks for the ATISA margin for that record.
       {% endif %}
     </p>
   </div>
@@ -37,9 +37,9 @@
         data-initial-status=""
       >
         {% csrf_token %}
+        <input type="hidden" name="return_query" value="{{ request.GET.urlencode }}">
         <input type="hidden" name="template_id" value="{{ template.pk }}">
         {% if user.is_staff %}
-          <input type="hidden" name="sd_margin" value="">
           <input type="hidden" name="atisa_margin" value="">
         {% endif %}
 
@@ -128,6 +128,7 @@
                 >Edit</button>
                 <form method="post" action="{% url 'delete_timesheet_record' record.pk %}" class="inline-form">
                   {% csrf_token %}
+                  <input type="hidden" name="return_query" value="{{ request.GET.urlencode }}">
                   <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                 </form>
               </td>
@@ -158,8 +159,8 @@
           data-initial-status=""
         >
           {% csrf_token %}
+          <input type="hidden" name="return_query" value="{{ request.GET.urlencode }}">
           {% if user.is_staff %}
-            <input type="hidden" name="sd_margin" value="">
             <input type="hidden" name="atisa_margin" value="">
           {% endif %}
           <div class="form-section">
@@ -193,7 +194,7 @@
           <button type="button" class="modal-close" data-close-margin-modal aria-label="Close">&times;</button>
         </div>
         <p class="panel-help">
-          Enter margins for this COMPLETE record (0–100%). They apply only to this timesheet.
+          Enter the ATISA margin for this COMPLETE record (0–100%). It applies only to this timesheet.
         </p>
         <form id="complete-margin-form" class="form" onsubmit="return false;">
           <label for="margin-atisa">ATISA time margin (%)</label>
@@ -206,17 +207,7 @@
             placeholder="e.g. 35"
             required
           >
-          <label for="margin-sd">SD time margin (%)</label>
-          <input
-            id="margin-sd"
-            type="number"
-            step="0.01"
-            min="0"
-            max="100"
-            placeholder="e.g. 10"
-            required
-          >
-          <p id="margin-error" class="error" hidden>Enter both margins between 0 and 100.</p>
+          <p id="margin-error" class="error" hidden>Enter an ATISA margin between 0 and 100.</p>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" data-close-margin-modal>Cancel</button>
             <button type="submit" class="btn btn-primary">Confirm COMPLETE</button>
@@ -242,7 +233,6 @@
     const marginModal = document.getElementById('complete-margin-modal');
     const marginForm = document.getElementById('complete-margin-form');
     const marginAtisa = document.getElementById('margin-atisa');
-    const marginSd = document.getElementById('margin-sd');
     const marginError = document.getElementById('margin-error');
     let pendingForm = null;
     let skipMarginPrompt = false;
@@ -325,7 +315,7 @@
       setCompleteLocked(form, false);
       form.querySelectorAll('input, select, textarea').forEach(function (field) {
         if (field.type === 'hidden' || field.name === 'csrfmiddlewaretoken') return;
-        if (field.name === 'sd_margin' || field.name === 'atisa_margin') return;
+        if (field.name === 'atisa_margin') return;
         const value = values[field.name];
         if (value === undefined || value === null) {
           field.value = '';
@@ -333,9 +323,7 @@
         }
         field.value = value;
       });
-      const sd = form.querySelector('input[name="sd_margin"]');
       const atisa = form.querySelector('input[name="atisa_margin"]');
-      if (sd) sd.value = values._sd_margin || '';
       if (atisa) atisa.value = values._atisa_margin || '';
       form.dataset.initialStatus = values.Status || '';
       if (!allowComplete && values.Status === 'COMPLETE') {
@@ -350,9 +338,7 @@
       }
       pendingForm = form;
       const existingAtisa = form.querySelector('input[name="atisa_margin"]');
-      const existingSd = form.querySelector('input[name="sd_margin"]');
       if (marginAtisa) marginAtisa.value = existingAtisa ? existingAtisa.value : '';
-      if (marginSd) marginSd.value = existingSd ? existingSd.value : '';
       if (marginError) marginError.hidden = true;
       marginModal.hidden = false;
       if (marginAtisa) marginAtisa.focus();
@@ -405,22 +391,17 @@
         event.preventDefault();
         if (!pendingForm) return;
         const atisa = marginAtisa ? marginAtisa.value.trim() : '';
-        const sd = marginSd ? marginSd.value.trim() : '';
         const atisaNum = Number(atisa);
-        const sdNum = Number(sd);
         if (
-          atisa === '' || sd === '' ||
-          Number.isNaN(atisaNum) || Number.isNaN(sdNum) ||
-          atisaNum < 0 || atisaNum > 100 ||
-          sdNum < 0 || sdNum > 100
+          atisa === '' ||
+          Number.isNaN(atisaNum) ||
+          atisaNum < 0 || atisaNum > 100
         ) {
           if (marginError) marginError.hidden = false;
           return;
         }
         const atisaField = pendingForm.querySelector('input[name="atisa_margin"]');
-        const sdField = pendingForm.querySelector('input[name="sd_margin"]');
         if (atisaField) atisaField.value = atisa;
-        if (sdField) sdField.value = sd;
         const formToSubmit = pendingForm;
         closeMarginModal();
         skipMarginPrompt = true;

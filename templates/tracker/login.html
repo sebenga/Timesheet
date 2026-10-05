@@ -10,9 +10,49 @@
     {% csrf_token %}
     {% for field in form %}
       <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-      {{ field }}
+      {% if field.name == 'password' %}
+        <div class="password-field">
+          {{ field }}
+          <button
+            type="button"
+            class="password-toggle"
+            id="toggle-login-password"
+            aria-label="Show password"
+            aria-pressed="false"
+          >
+            <svg class="icon-eye" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2.5A2.5 2.5 0 1 0 12 9a2.5 2.5 0 0 0 0 5z"/>
+            </svg>
+            <svg class="icon-eye-off" viewBox="0 0 24 24" aria-hidden="true" hidden>
+              <path fill="currentColor" d="M3.3 2.3 2 3.6l3.2 3.2C3 8.5 1.6 10.5 1.2 12c0 0 3 7 10.8 7 2.2 0 4.1-.5 5.6-1.3l3.4 3.4 1.3-1.3L3.3 2.3zM12 17c-5.2 0-7.7-4.2-8.6-5.9.5-.9 1.5-2.3 3-3.4l2.1 2.1A5 5 0 0 0 12 17zm8.8-5c-.3.6-1 1.6-2 2.6l-1.5-1.5c.6-.6 1.1-1.2 1.4-1.6C17.7 9.8 15.2 7 12 7c-.5 0-1 .1-1.4.2L9.2 5.8C10.1 5.3 11 5 12 5c7 0 10 7 10 7z"/>
+            </svg>
+          </button>
+        </div>
+      {% else %}
+        {{ field }}
+      {% endif %}
     {% endfor %}
     <button type="submit" class="btn btn-primary">Sign in</button>
   </form>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const button = document.getElementById('toggle-login-password');
+    const field = document.getElementById('id_password');
+    if (!button || !field) return;
+    const eye = button.querySelector('.icon-eye');
+    const eyeOff = button.querySelector('.icon-eye-off');
+    button.addEventListener('click', function () {
+      const show = field.type === 'password';
+      field.type = show ? 'text' : 'password';
+      button.setAttribute('aria-pressed', show ? 'true' : 'false');
+      button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      if (eye) eye.hidden = show;
+      if (eyeOff) eyeOff.hidden = !show;
+    });
+  })();
+</script>
 {% endblock %}

@@ -55,12 +55,6 @@ def format_hours(value):
     return format(amount, 'f')
 
 
-def apply_margin(total_hours, percent, rounder=round_nearest_10):
-    total = _to_decimal(total_hours)
-    rate = _to_decimal(percent) / Decimal('100')
-    return rounder(total + (total * rate))
-
-
 def margin_hours_only(hours, percent, rounder=round_nearest_decimal):
     """Margin portion only: hours spent × margin %."""
     total = _to_decimal(hours)
@@ -68,19 +62,11 @@ def margin_hours_only(hours, percent, rounder=round_nearest_decimal):
     return rounder(total * rate)
 
 
-def apply_atisa_total(hours, sd_percent, atisa_percent, rounder=round_nearest_decimal):
-    """Hours spent + SD margin + ATISA margin (each as % of hours spent)."""
+def apply_atisa_total(hours, atisa_percent, rounder=round_nearest_decimal):
+    """Hours spent + ATISA margin (as % of hours spent)."""
     total = _to_decimal(hours)
-    sd_rate = _to_decimal(sd_percent) / Decimal('100')
     atisa_rate = _to_decimal(atisa_percent) / Decimal('100')
-    return rounder(total + (total * sd_rate) + (total * atisa_rate))
-
-
-def apply_user_plus_sd_percent(user_hours, total_hours, percent, rounder=round_nearest_10):
-    user = _to_decimal(user_hours)
-    total = _to_decimal(total_hours)
-    rate = _to_decimal(percent) / Decimal('100')
-    return rounder(user + (total * rate))
+    return rounder(total + (total * atisa_rate))
 
 
 def _format_percent(percent):
@@ -100,9 +86,9 @@ def format_margin_display(hours, percents):
 
 
 def _margins_for_record(record):
-    sd = record.sd_margin if record.sd_margin is not None else Decimal('0')
-    atisa = record.atisa_margin if record.atisa_margin is not None else Decimal('0')
-    return sd, atisa
+    if record.atisa_margin is not None:
+        return record.atisa_margin
+    return Decimal('0')
 
 
 def _row_matches_query(row, users, query):
@@ -113,8 +99,6 @@ def _row_matches_query(row, users, query):
     parts.append(str(row['total_hours']))
     parts.append(str(row.get('atisa_margin_display', '')))
     parts.append(str(row['atisa_total_decimal']))
-    parts.append(str(row.get('admin_margin_display', '')))
-    parts.append(str(row['admin_sd_total_decimal']))
     for user in users:
         parts.append(user)
         parts.append(str(row['user_hours'].get(user, '')))
@@ -143,7 +127,7 @@ def build_completed_month_summary(start=None, end=None, query=''):
         ticket_key = str(ticket_id)
         assigned = (values.get('Assigned') or 'Unassigned').strip() or 'Unassigned'
         hours = _to_decimal(values.get('Hours spent'))
-        sd_margin, atisa_margin = _margins_for_record(record)
+        atisa_margin = _margins_for_record(record)
 
         if assigned not in users:
             users.append(assigned)
@@ -159,11 +143,6 @@ def build_completed_month_summary(start=None, end=None, query=''):
                 'atisa_total_decimal': Decimal('0'),
                 'atisa_margin_hours': Decimal('0'),
                 'atisa_margin_percents': set(),
-                'sd_total': Decimal('0'),
-                'sd_margin_hours': Decimal('0'),
-                'sd_margin_percents': set(),
-                'admin_sd_total': Decimal('0'),
-                'admin_sd_total_decimal': Decimal('0'),
             }
             grouped[ticket_key] = row
         else:
@@ -173,22 +152,10 @@ def build_completed_month_summary(start=None, end=None, query=''):
 
         row['user_hours'][assigned] = row['user_hours'].get(assigned, Decimal('0')) + hours
         row['total_hours'] += hours
-        row['atisa_total'] += apply_atisa_total(hours, sd_margin, atisa_margin, round_nearest_10)
-        row['atisa_total_decimal'] += apply_atisa_total(hours, sd_margin, atisa_margin)
+        row['atisa_total'] += apply_atisa_total(hours, atisa_margin, round_nearest_10)
+        row['atisa_total_decimal'] += apply_atisa_total(hours, atisa_margin)
         row['atisa_margin_hours'] += margin_hours_only(hours, atisa_margin)
         row['atisa_margin_percents'].add(_to_decimal(atisa_margin))
-        row['sd_total'] += apply_margin(hours, sd_margin)
-        row['sd_margin_hours'] += margin_hours_only(hours, sd_margin)
-        row['sd_margin_percents'].add(_to_decimal(sd_margin))
-
-        assigned_key = assigned
-        if assigned_key == LEGACY_ADMIN_USERNAME:
-            assigned_key = ADMIN_USERNAME
-        admin_hours = hours if assigned_key == ADMIN_USERNAME else Decimal('0')
-        row['admin_sd_total'] += apply_user_plus_sd_percent(admin_hours, hours, sd_margin)
-        row['admin_sd_total_decimal'] += apply_user_plus_sd_percent(
-            admin_hours, hours, sd_margin, round_nearest_decimal,
-        )
 
     for row in grouped.values():
         legacy_hours = row['user_hours'].pop(LEGACY_ADMIN_USERNAME, Decimal('0'))
@@ -212,7 +179,6 @@ def build_completed_month_summary(start=None, end=None, query=''):
             user for user in users if user_hours[user] > 0
         )
         atisa_margin_hours = round_whole_hours(row['atisa_margin_hours'])
-        sd_margin_hours = round_whole_hours(row['sd_margin_hours'])
         prepared = {
             'details': row['details'],
             'user_hours': user_hours,
@@ -224,14 +190,6 @@ def build_completed_month_summary(start=None, end=None, query=''):
             'atisa_margin_display': format_margin_display(
                 atisa_margin_hours, row['atisa_margin_percents'],
             ),
-            'sd_total': round_whole_hours(row['sd_total']),
-            'sd_margin_hours': sd_margin_hours,
-            'sd_margin_percents': set(row['sd_margin_percents']),
-            'admin_margin_display': format_margin_display(
-                sd_margin_hours, row['sd_margin_percents'],
-            ),
-            'admin_sd_total': round_whole_hours(row['admin_sd_total']),
-            'admin_sd_total_decimal': round_whole_hours(row['admin_sd_total_decimal']),
         }
         if _row_matches_query(prepared, users, query):
             rows.append(prepared)
@@ -240,45 +198,28 @@ def build_completed_month_summary(start=None, end=None, query=''):
         'total_hours': Decimal('0'),
         'user_hours': {user: Decimal('0') for user in users},
         'atisa_total': Decimal('0'),
-        'sd_total': Decimal('0'),
-        'admin_sd_total': Decimal('0'),
         'atisa_total_decimal': Decimal('0'),
-        'admin_sd_total_decimal': Decimal('0'),
         'atisa_margin_hours': Decimal('0'),
-        'sd_margin_hours': Decimal('0'),
         'atisa_margin_percents': set(),
-        'sd_margin_percents': set(),
     }
     for row in rows:
         totals['total_hours'] += row['total_hours']
         totals['atisa_total'] += row['atisa_total']
         totals['atisa_total_decimal'] += row['atisa_total_decimal']
-        totals['sd_total'] += row['sd_total']
-        totals['admin_sd_total'] += row['admin_sd_total']
-        totals['admin_sd_total_decimal'] += row['admin_sd_total_decimal']
         totals['atisa_margin_hours'] += row['atisa_margin_hours']
-        totals['sd_margin_hours'] += row['sd_margin_hours']
         totals['atisa_margin_percents'].update(row['atisa_margin_percents'])
-        totals['sd_margin_percents'].update(row['sd_margin_percents'])
         for user in users:
             totals['user_hours'][user] += row['user_hours'][user]
 
     totals['atisa_margin_hours'] = round_whole_hours(totals['atisa_margin_hours'])
-    totals['sd_margin_hours'] = round_whole_hours(totals['sd_margin_hours'])
     totals['total_hours'] = round_hours(totals['total_hours'])
     totals['atisa_total'] = round_whole_hours(totals['atisa_total'])
     totals['atisa_total_decimal'] = round_whole_hours(totals['atisa_total_decimal'])
-    totals['sd_total'] = round_whole_hours(totals['sd_total'])
-    totals['admin_sd_total'] = round_whole_hours(totals['admin_sd_total'])
-    totals['admin_sd_total_decimal'] = round_whole_hours(totals['admin_sd_total_decimal'])
     totals['user_hours'] = {
         user: round_hours(hours) for user, hours in totals['user_hours'].items()
     }
     totals['atisa_margin_display'] = format_margin_display(
         totals['atisa_margin_hours'], totals['atisa_margin_percents'],
-    )
-    totals['admin_margin_display'] = format_margin_display(
-        totals['sd_margin_hours'], totals['sd_margin_percents'],
     )
 
     return {
